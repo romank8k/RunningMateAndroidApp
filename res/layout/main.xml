@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="fill_parent"
+	android:layout_height="fill_parent">
+	<TextView
+		android:id="@+id/label"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="10dp"
+		android:layout_centerHorizontal="true"
+		android:gravity="center"
+		android:textSize="16sp"
+		android:textStyle="bold"
+		android:text="Select an option:"
+	/>
+	<Button
+		android:id="@+id/run_button"
+		android:layout_width="300dp"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="15dip"
+		android:layout_centerHorizontal="true"
+		android:layout_below="@id/label"
+		android:textSize="14sp"
+		android:textStyle="bold"
+		android:text="Start Running"
+	/>
+	<Button
+		android:id="@+id/sync_button"
+		android:layout_width="300dp"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="15dip"
+		android:layout_centerHorizontal="true"
+		android:layout_below="@id/run_button"
+		android:textSize="14sp"
+		android:textStyle="bold"
+		android:text="Synchronize with Cloud"
+	/>
+	<Button
+		android:id="@+id/exit_button"
+		android:layout_width="300dp"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="30dip"
+		android:layout_centerHorizontal="true"
+		android:layout_below="@id/sync_button"
+		android:textSize="14sp"
+		android:textStyle="bold"
+		android:text="Exit"
+	/>
+</RelativeLayout>
