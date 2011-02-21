@@ -25,8 +25,6 @@
 
 package com.roman.runningmate;
 
-import com.roman.runningmate.R;
-
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -55,9 +53,12 @@ public class RunningMate extends Activity {
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onCreate() called.");
+
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main);
 
+    // TODO: We only need to start this service when tracking a run and synchronizing.
     // The location service will not be destroyed unless explicitly called to or the system is severely out of resources.
     // We always want the service to run in the background even when we're not bound to it (as long as we're tracking a run, synchronizing, etc).
     startService(new Intent(this, LocationService.class));
@@ -69,7 +70,7 @@ public class RunningMate extends Activity {
       @Override
       public void onClick(View view) {
         Intent intent = new Intent(view.getContext(), TrackRun.class);
-        startActivity(intent);
+        startActivityForResult(intent, 0);
       }
     });
 
@@ -77,7 +78,7 @@ public class RunningMate extends Activity {
     syncButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View view) {
-        Intent intent = new Intent(view.getContext(), ListAccounts.class);
+        Intent intent = new Intent(view.getContext(), Synchronize.class);
         startActivity(intent);
       }
     });
@@ -97,12 +98,12 @@ public class RunningMate extends Activity {
     return locationService;
   }
 
-  void doBindService() {
+  public void doBindService() {
     bindService(new Intent(this, LocationService.class), serviceConnection, Context.BIND_AUTO_CREATE);
     isBound = true;
   }
 
-  void doUnbindService() {
+  public void doUnbindService() {
     if (isBound) {
       unbindService(serviceConnection);
       isBound = false;
@@ -110,17 +111,30 @@ public class RunningMate extends Activity {
   }
 
   @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+    super.onActivityResult(requestCode, resultCode, intent);
+    if (requestCode == 0) {
+      // The intent could be null if the user pressed the back button during the sub-activity.
+      if (intent != null) {
+      }
+    }
+  }
+
+  @Override
   public void onSaveInstanceState(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onSaveInstanceState() called.");
     super.onSaveInstanceState(savedInstanceState);
   }
 
   @Override
   public void onRestoreInstanceState(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onRestoreInstanceState() called.");
     super.onRestoreInstanceState(savedInstanceState);
   }
 
   @Override
   protected void onDestroy() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onDestroy() called.");
     super.onDestroy();
     doUnbindService();
     stopService(new Intent(this, LocationService.class));
@@ -128,26 +142,31 @@ public class RunningMate extends Activity {
 
   @Override
   protected void onPause() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onPause() called.");
     super.onPause();
   }
 
   @Override
   protected void onStop() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onStop() called.");
     super.onStop();
   }
 
   @Override
   protected void onStart() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onStart() called.");
     super.onStart();
   }
 
   @Override
   protected void onResume() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onResume() called.");
     super.onResume();
   }
 
   @Override
   protected void onRestart() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onRestart() called.");
     super.onRestart();
   }
 }

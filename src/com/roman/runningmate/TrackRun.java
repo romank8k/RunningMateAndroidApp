@@ -28,6 +28,7 @@ package com.roman.runningmate;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -100,6 +101,9 @@ public class TrackRun extends MapActivity {
       public void onClick(View view) {
         RunningMate.getLocationService().removeLocationListener(locationListener);
         RunningMate.getLocationService().stopRun();
+
+        // We don't need to pass any result back to the calling activity.
+        setResult(0, new Intent(view.getContext(), RunningMate.class));
         finish();
       }
     });
@@ -150,5 +154,41 @@ public class TrackRun extends MapActivity {
         lastGeoPoint = currGeoPoint;
       }
     }
+  }
+
+  @Override
+  protected void onDestroy() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onDestroy() called.");
+    super.onDestroy();
+  }
+
+  @Override
+  protected void onPause() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onPause() called.");
+    super.onPause();
+  }
+
+  @Override
+  protected void onStop() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onStop() called.");
+    super.onStop();
+  }
+
+  @Override
+  protected void onStart() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onStart() called.");
+    super.onStart();
+  }
+
+  @Override
+  protected void onResume() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onResume() called.");
+    super.onResume();
+  }
+
+  @Override
+  protected void onRestart() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onRestart() called.");
+    super.onRestart();
   }
 }

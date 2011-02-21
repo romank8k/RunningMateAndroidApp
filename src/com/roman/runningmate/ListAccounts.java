@@ -48,7 +48,7 @@ public class ListAccounts extends ListActivity {
     Account account = (Account) getListView().getItemAtPosition(position);
     Intent intent = new Intent(this, Synchronize.class);
     intent.putExtra("account", account);
-    startActivity(intent);
+    setResult(0, intent);
     finish();
   }
 }

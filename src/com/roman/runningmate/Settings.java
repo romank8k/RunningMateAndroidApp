@@ -25,6 +25,8 @@
 
 package com.roman.runningmate;
 
+import android.util.Log;
+
 public class Settings {
   private static final boolean DEBUG = true;
   private static final String LOG_TAG = "RunningMate";
@@ -35,5 +37,13 @@ public class Settings {
 
   public static String getLogTag() {
     return LOG_TAG;
+  }
+
+  public static void printLogMessage(String canonicalName, String message) {
+    Log.d(LOG_TAG, "(" + canonicalName + ") " + message);
+  }
+
+  public static void printLogErrorMessage(String canonicalName, Throwable throwable) {
+    Log.e(LOG_TAG, "(" + canonicalName + ")", throwable);
   }
 }

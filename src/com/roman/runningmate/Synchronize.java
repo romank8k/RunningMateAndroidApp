@@ -60,16 +60,27 @@ import android.widget.TextView;
 // Note: Much of the authentication code originally comes from Nick Johnson's blog post at
 // http://blog.notdot.net/2010/05/Authenticating-against-App-Engine-from-an-Android-app
 public class Synchronize extends Activity {
-  private DefaultHttpClient httpClient = new DefaultHttpClient();
+  private DefaultHttpClient httpClient;
   private TextView textView;
+  private String serverResponseStr;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onCreate() called.");
     super.onCreate(savedInstanceState);
     setContentView(R.layout.synchronize);
 
+    httpClient = new DefaultHttpClient();
+
     textView = (TextView) findViewById(R.id.scroll_view);
-    textView.setText("Synchronizing run with server. Please wait...");
+
+    if (savedInstanceState == null) {
+      serverResponseStr = "Synchronizing run with server. Please wait...";
+      startActivityForResult(new Intent(Synchronize.this, ListAccounts.class), 0);
+    } else {
+      serverResponseStr = savedInstanceState.getString("Response");
+    }
+    textView.setText(serverResponseStr);
 
     Button finishButton = (Button) this.findViewById(R.id.finish_button);
     finishButton.setOnClickListener(new View.OnClickListener() {
@@ -81,31 +92,70 @@ public class Synchronize extends Activity {
   }
 
   @Override
+  protected void onDestroy() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onDestroy() called.");
+    super.onDestroy();
+  }
+
+  @Override
   protected void onResume() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onResume() called.");
     super.onResume();
-    Intent intent = getIntent();
-    AccountManager accountManager = AccountManager.get(getApplicationContext());
-    Account account = (Account) intent.getExtras().get("account");
+  }
 
-    // The auth token can expire or become invalid. We must remove it from the cache and get a new one if this happens.
-    // TODO: For now, we just invalidate it every time...
-    AccountManagerFuture<Bundle> future = accountManager.getAuthToken(account, "ah", false, null, null);
-    Bundle bundle;
-    try {
-      bundle = future.getResult();
-      String token = bundle.getString(AccountManager.KEY_AUTHTOKEN);
-      accountManager.invalidateAuthToken(account.type, token);
+  @Override
+  public void onSaveInstanceState(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onSaveInstanceState() called.");
+    super.onSaveInstanceState(savedInstanceState);
+    savedInstanceState.putString("Response", serverResponseStr);
+  }
 
-    } catch (OperationCanceledException e) {
-      e.printStackTrace();
-    } catch (AuthenticatorException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
-      e.printStackTrace();
+  @Override
+  public void onRestoreInstanceState(Bundle savedInstanceState) {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onRestoreInstanceState() called.");
+    super.onRestoreInstanceState(savedInstanceState);
+  }
+
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+    super.onActivityResult(requestCode, resultCode, intent);
+    if (requestCode == 0) {
+      // The intent could be null if the user pressed the back button during the sub-activity.
+      if (intent != null) {
+        AccountManager accountManager = AccountManager.get(getApplicationContext());
+        Account account = (Account) intent.getExtras().get("account");
+        accountManager.getAuthToken(account, "ah", false, new InvalidateAuthTokenCallback(accountManager, account), null);
+        return;
+      }
+    }
+    finish();
+  }
+
+  private class InvalidateAuthTokenCallback implements AccountManagerCallback<Bundle> {
+    private AccountManager accountManager;
+    private Account account;
+
+    public InvalidateAuthTokenCallback(AccountManager accountManager, Account account) {
+      this.accountManager = accountManager;
+      this.account = account;
     }
 
-    accountManager.getAuthToken(account, "ah", false, new GetAuthTokenCallback(), null);
-  }
+    public void run(AccountManagerFuture<Bundle> result) {
+      Bundle bundle;
+      try {
+        bundle = result.getResult();
+        String token = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+        accountManager.invalidateAuthToken(account.type, token);
+        accountManager.getAuthToken(account, "ah", false, new GetAuthTokenCallback(), null);
+      } catch (OperationCanceledException e) {
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+      } catch (AuthenticatorException e) {
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+      } catch (IOException e) {
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+      }
+    }
+  };
 
   private class GetAuthTokenCallback implements AccountManagerCallback<Bundle> {
     public void run(AccountManagerFuture<Bundle> result) {
@@ -120,11 +170,11 @@ public class Synchronize extends Activity {
           onGetAuthToken(bundle);
         }
       } catch (OperationCanceledException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (AuthenticatorException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (IOException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       }
     }
   };
@@ -154,9 +204,9 @@ public class Synchronize extends Activity {
             return true;
         }
       } catch (ClientProtocolException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (IOException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } finally {
         httpClient.getParams().setBooleanParameter(ClientPNames.HANDLE_REDIRECTS, true);
       }
@@ -180,9 +230,9 @@ public class Synchronize extends Activity {
 
         return httpClient.execute(httpPost);
       } catch (ClientProtocolException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (IOException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       }
       return null;
     }
@@ -195,11 +245,12 @@ public class Synchronize extends Activity {
         while ((line = reader.readLine()) != null) {
           content.append(line + '\n');
         }
-        textView.setText(content.toString());
+        serverResponseStr = content.toString();
+        textView.setText(serverResponseStr);
       } catch (IllegalStateException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (IOException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       }
     }
   }

@@ -38,9 +38,6 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -51,14 +48,14 @@ import android.location.LocationManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.widget.Toast;
 
 public class LocationService extends Service {
   private final IBinder binder = new LocalBinder();
 
-  private NotificationManager notificationManager;
-
+  private MockLocationProvider mockLocationProvider = null;
+  private boolean mockLocationProviderFinished = true;
+  
   private DataHelper dataHelper;
 
   private LocationManager locationManager = null;
@@ -85,29 +82,27 @@ public class LocationService extends Service {
   }
 
   @Override
-  public void onDestroy() {
-    Log.d(Settings.getLogTag(), "onDestroy() called.");
-
-    // Clean up here.
-    locationManager = null;
-    currCoordinate = null;
-    runId = -1;
-    runStartedTime = 0;
-    runDistance = 0;
-
-    notificationManager.cancel(0);
-  }
-
-  @Override
   public IBinder onBind(Intent intent) {
     return binder;
   }
 
   @Override
-  public void onCreate() {
-    Log.d(Settings.getLogTag(), "onCreate() called.");
+  public void onDestroy() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onDestroy() called.");
+    super.onDestroy();
+    // Clean up here.
+    dataHelper.close();
+    locationManager = null;
+    currCoordinate = null;
+    runId = -1;
+    runStartedTime = 0;
+    runDistance = 0;
+  }
 
-    addNotification();
+  @Override
+  public void onCreate() {
+    Settings.printLogMessage(getClass().getCanonicalName(), "onCreate() called.");
+    super.onCreate();
 
     dataHelper = new DataHelper(this);
 
@@ -132,7 +127,7 @@ public class LocationService extends Service {
 
       @Override
       public void onProviderDisabled(String provider) {
-        // Might want to tell user that the GPS is disabled and we can't collect coordinates.
+        // TODO: Might want to tell user that the GPS is disabled and we can't collect coordinates.
       }
 
       @Override
@@ -159,7 +154,7 @@ public class LocationService extends Service {
         try {
           Thread.sleep(1000);
         } catch (InterruptedException e) {
-          e.printStackTrace();
+          Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
         }
 
         String[] parts = str.split(",");
@@ -171,25 +166,13 @@ public class LocationService extends Service {
         location.setLongitude(longitude);
         location.setAltitude(altitude);
 
-        //Log.d(Settings.getLogTag(), "Parsing mock location: " + location.toString());
-
         // Must set the time.
         location.setTime(System.currentTimeMillis());
 
         locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, location);
       }
+      mockLocationProviderFinished = true;
     }
-  }
-
-  // TODO: The intent should not create a new activity on the history stack. It should return the last thing the user was looking at.
-  public void addNotification() {
-    notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-    Notification notification = new Notification(R.drawable.icon, "Running Mate Started", System.currentTimeMillis());
-
-    // The PendingIntent to launch our activity if the user selects this notification
-    PendingIntent contentIntent = PendingIntent.getActivity(this, 0, new Intent(this, RunningMate.class), PendingIntent.FLAG_UPDATE_CURRENT);
-    notification.setLatestEventInfo(this, "Running Mate", "Select to launch.", contentIntent);
-    notificationManager.notify(0, notification);
   }
 
   public void registerLocationListener(LocationListener locationListener) {
@@ -208,29 +191,34 @@ public class LocationService extends Service {
         locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
-        List<String> locations = new ArrayList<String>();
-        String locationsUrl = "http://running.mindcache.net/locations.php";
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        HttpGet httpGet = new HttpGet(locationsUrl);
-        try {
-          HttpResponse response = httpClient.execute(httpGet);
-          BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-          String location;
-          while ((location = reader.readLine()) != null) {
-            if (location.length() > 0) {
-              try {
-                locations.add(location);
-              } catch (SQLException e) {
-                e.getMessage();
+        // Don't want multiple instances of the mock location provider thread running (causes chaotic results!).
+        if (mockLocationProvider == null || mockLocationProviderFinished == true) {
+          List<String> locations = new ArrayList<String>();
+          String locationsUrl = "http://running.mindcache.net/locations.php";
+          DefaultHttpClient httpClient = new DefaultHttpClient();
+          HttpGet httpGet = new HttpGet(locationsUrl);
+          try {
+            HttpResponse response = httpClient.execute(httpGet);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+            String location;
+            while ((location = reader.readLine()) != null) {
+              if (location.length() > 0) {
+                try {
+                  locations.add(location);
+                } catch (SQLException e) {
+                  Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+                }
               }
             }
-          }
 
-          new MockLocationProvider(locations).start();
-        } catch (ClientProtocolException e) {
-          e.printStackTrace();
-        } catch (IOException e) {
-          e.printStackTrace();
+            mockLocationProviderFinished = false;
+            mockLocationProvider = new MockLocationProvider(locations);
+            mockLocationProvider.start();
+          } catch (ClientProtocolException e) {
+            Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+          } catch (IOException e) {
+            Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
+          }
         }
       } else {
         // We send location updates every 10 seconds.
@@ -267,7 +255,7 @@ public class LocationService extends Service {
     }
   }
 
-  // Insert coordinates into database and update the run end time, and distance.
+  // Insert coordinates into database and update the run end time and run distance.
   public void saveCoordinates() {
     if (coordinates.size() > 0) {
       for (Coordinate coordinate : coordinates) {
@@ -282,19 +270,20 @@ public class LocationService extends Service {
   }
 
   public String getRunsJson() {
-    long timeBegin = System.nanoTime();
+    long timeBegin = System.currentTimeMillis();
 
-    // TODO: Find the smallest run start time that you need to sync.
+    // Find all runs that came later than the last synced run.
+    // TODO: For debugging.
     // long lastSyncedRunStartTime = lastSyncedRun();
     long lastSyncedRunStartTime = 0;
+    List<Run> allRuns = dataHelper.getAllRunsSince(lastSyncedRunStartTime);
+    List<Run> runs = allRuns.subList(allRuns.size() - 2, allRuns.size());  // TODO: For debugging purposes.
 
     // Build JSON string based on all runs later than the last synced run.
     StringBuilder json = new StringBuilder("{\"runs\":[");
 
-    List<Run> allRuns = dataHelper.getAllRunsSince(lastSyncedRunStartTime);
-    List<Run> runs = allRuns.subList(allRuns.size() - 2, allRuns.size());// TODO: For debugging.
-
-    // TODO: We get out of memory exception when the json string becomes too large! Need to split this up.
+    // TODO: These need to be split up since the json String can become very large.
+    //       Best solution might be to stream the post data in chunks.
     for (Run run : runs) {
       if (runs.get(0) != run)
         json.append(",");
@@ -332,10 +321,9 @@ public class LocationService extends Service {
     }
     json.append("]}");
 
-    long timeEnd = System.nanoTime();
+    long timeEnd = System.currentTimeMillis();
 
-    Log.d(Settings.getLogTag(), "Time to get runs: " + ((timeEnd - timeBegin) / 1000.0) + " millis.\n");
-
+    Settings.printLogMessage(getClass().getCanonicalName(), "Time to get runs: " + (timeEnd - timeBegin) + " millis.\n");
     return json.toString();
   }
 
@@ -346,15 +334,14 @@ public class LocationService extends Service {
       // We only expect one line.
       String str = in.readLine();
       in.close();
-      Log.d(Settings.getLogTag(), "Last synced run: " + str);
-
+      Settings.printLogMessage(getClass().getCanonicalName(), "Last synced run: " + str);
       return Long.parseLong(str);
     } catch (MalformedURLException e) {
-      Log.e(Settings.getLogTag(), e.getMessage(), e.getCause());
+      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
     } catch (IOException e) {
-      Log.e(Settings.getLogTag(), e.getMessage(), e.getCause());
+      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
     } catch (NumberFormatException e) {
-      Log.e(Settings.getLogTag(), e.getMessage(), e.getCause());
+      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
     }
 
     // If we had an error getting the last synced run from the cloud, we return the largest possible value

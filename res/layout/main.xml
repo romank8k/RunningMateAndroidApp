@@ -22,7 +22,7 @@
 		android:layout_below="@id/label"
 		android:textSize="14sp"
 		android:textStyle="bold"
-		android:text="Start Running"
+		android:text="Track Run"
 	/>
 	<Button
 		android:id="@+id/sync_button"

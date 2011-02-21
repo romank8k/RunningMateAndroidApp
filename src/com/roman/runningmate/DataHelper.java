@@ -43,7 +43,6 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteStatement;
-import android.util.Log;
 
 public class DataHelper {
   private static final String DATABASE_NAME = "runningmate.db";
@@ -59,6 +58,10 @@ public class DataHelper {
     database = openHelper.getWritableDatabase();
     insertRun = database.compileStatement("INSERT INTO runs(time_start, time_end, distance) VALUES(?, ?, ?)");
     insertCoordinate = database.compileStatement("INSERT INTO coordinates(run_id, latitude, longitude, elevation, time_elapsed) VALUES(?, ?, ?, ?, ?)");
+  }
+  
+  public void close() {
+    database.close();
   }
 
   public long insertRun(long startTime, long endTime, double distance) {
@@ -160,17 +163,17 @@ public class DataHelper {
         while ((sqlStatement = reader.readLine()) != null) {
           if (sqlStatement.length() > 0) {
             try {
+              Settings.printLogMessage(getClass().getCanonicalName(), "Executing SQL statement: " + sqlStatement);
               database.execSQL(sqlStatement);
-              Log.d(Settings.getLogTag(), "Executing SQL statement: " + sqlStatement);
             } catch (SQLException e) {
-              e.getMessage();
+              Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
             }
           }
         }
       } catch (ClientProtocolException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       } catch (IOException e) {
-        e.printStackTrace();
+        Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
       }
     }
 
