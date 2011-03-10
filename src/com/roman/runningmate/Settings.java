@@ -28,7 +28,7 @@ package com.roman.runningmate;
 import android.util.Log;
 
 public class Settings {
-  private static final boolean DEBUG = true;
+  private static final boolean DEBUG = false;
   private static final String LOG_TAG = "RunningMate";
 
   public static boolean getDebug() {

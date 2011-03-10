@@ -28,8 +28,6 @@ package com.roman.runningmate;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -269,21 +267,20 @@ public class LocationService extends Service {
     }
   }
 
-  public String getRunsJson() {
+  public String getRunsJson(long lastSyncedRunStartTime) {
     long timeBegin = System.currentTimeMillis();
 
     // Find all runs that came later than the last synced run.
-    // TODO: For debugging.
-    // long lastSyncedRunStartTime = lastSyncedRun();
-    long lastSyncedRunStartTime = 0;
     List<Run> allRuns = dataHelper.getAllRunsSince(lastSyncedRunStartTime);
-    List<Run> runs = allRuns.subList(allRuns.size() - 2, allRuns.size());  // TODO: For debugging purposes.
+//    List<Run> runs = allRuns.subList(allRuns.size() - 2, allRuns.size());  // TODO: For debugging purposes.
+    List<Run> runs = allRuns;
 
     // Build JSON string based on all runs later than the last synced run.
     StringBuilder json = new StringBuilder("{\"runs\":[");
 
-    // TODO: These need to be split up since the json String can become very large.
+    // TODO: These need to be split up since the JSON String can become very large.
     //       Best solution might be to stream the post data in chunks.
+    //       A problem with App Engine could also be that we time out, since writes to the datastore are sort of slow.
     for (Run run : runs) {
       if (runs.get(0) != run)
         json.append(",");
@@ -325,27 +322,5 @@ public class LocationService extends Service {
 
     Settings.printLogMessage(getClass().getCanonicalName(), "Time to get runs: " + (timeEnd - timeBegin) + " millis.\n");
     return json.toString();
-  }
-
-  public long lastSyncedRun() {
-    try {
-      URL url = new URL("");
-      BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
-      // We only expect one line.
-      String str = in.readLine();
-      in.close();
-      Settings.printLogMessage(getClass().getCanonicalName(), "Last synced run: " + str);
-      return Long.parseLong(str);
-    } catch (MalformedURLException e) {
-      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
-    } catch (IOException e) {
-      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
-    } catch (NumberFormatException e) {
-      Settings.printLogErrorMessage(getClass().getCanonicalName(), e);
-    }
-
-    // If we had an error getting the last synced run from the cloud, we return the largest possible value
-    // so that we don't re-insert any existing runs by accident.
-    return Long.MAX_VALUE;
   }
 }

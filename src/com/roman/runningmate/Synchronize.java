@@ -222,10 +222,29 @@ public class Synchronize extends Activity {
     @Override
     protected HttpResponse doInBackground(String... urls) {
       try {
+        // Find the last synced run time.
+        long lastSyncedRunStartTime = Long.MAX_VALUE;
+        HttpGet httpGet = new HttpGet("http://running-mate.appspot.com/data_service?request_type=get_last_synced_run_time");
+        HttpResponse httpGetResult = httpClient.execute(httpGet);
+
+        // We only expect one line in the response.
+        BufferedReader in = new BufferedReader(new InputStreamReader(httpGetResult.getEntity().getContent()));
+        String str = in.readLine();
+        in.close();
+        Settings.printLogMessage(getClass().getCanonicalName(), "Last synced run time: " + str);
+        lastSyncedRunStartTime = Long.parseLong(str);
+        // If we had an error getting the last synced run from the cloud, we return the largest possible value
+        // so that we don't re-insert any existing runs by accident.
+        if (lastSyncedRunStartTime < 0) {
+          lastSyncedRunStartTime = Long.MAX_VALUE;
+        }
+//        textView.setText("Last Synced Run Time: " + str + "\n\n");  // TODO: Exception here...
+
+        // Upload the runs.
         HttpPost httpPost = new HttpPost(urls[0]);
 
         List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(2);
-        nameValuePairs.add(new BasicNameValuePair("runs", RunningMate.getLocationService().getRunsJson()));
+        nameValuePairs.add(new BasicNameValuePair("runs", RunningMate.getLocationService().getRunsJson(lastSyncedRunStartTime)));
         httpPost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
 
         return httpClient.execute(httpPost);
